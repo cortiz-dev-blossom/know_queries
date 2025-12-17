@@ -4,17 +4,15 @@ WITH member_product_counts AS (
         member_number,
         COUNT(*) AS total_products_per_member
     FROM (
-        -- Deposit Accounts
         SELECT a.credit_union, a.member_number
         FROM "AwsDataCatalog"."silver-mvp-know"."account" a
         WHERE a.member_number > 0
           AND UPPER(TRIM(a.discriminator)) IN ('S','D','C','U')
           AND a.date_closed IS NULL
           AND UPPER(TRIM(COALESCE(a.access_control, ''))) NOT IN ('B','R')
-
+        
         UNION ALL
-
-        -- Loans (excluding credit cards)
+        
         SELECT a.credit_union, a.member_number
         FROM "AwsDataCatalog"."silver-mvp-know"."account" a
         JOIN "AwsDataCatalog"."silver-mvp-know"."account_loan" al
@@ -25,10 +23,9 @@ WITH member_product_counts AS (
           AND UPPER(TRIM(a.account_type)) NOT IN ('CC','PCO','PCCO')
           AND a.date_closed IS NULL
           AND a.charge_off_date IS NULL
-
+        
         UNION ALL
-
-        -- Debit / ATM Cards
+        
         SELECT c.credit_union, c.member_number
         FROM "AwsDataCatalog"."silver-mvp-know"."eft_card_file" c
         WHERE c.member_number > 0
@@ -38,10 +35,9 @@ WITH member_product_counts AS (
           AND TRIM(CAST(c.reject_code AS varchar)) NOT IN ('34','36','41','43','07')
           AND CAST(c.lost_or_stolen AS varchar) = ' '
           AND c.last_pin_used_date IS NOT NULL
-
+        
         UNION ALL
-
-        -- Physical Credit Cards
+        
         SELECT c.credit_union, c.member_number
         FROM "AwsDataCatalog"."silver-mvp-know"."eft_card_file" c
         WHERE c.member_number > 0
@@ -51,10 +47,9 @@ WITH member_product_counts AS (
           AND TRIM(CAST(c.reject_code AS varchar)) NOT IN ('34','36','41','43','07')
           AND CAST(c.lost_or_stolen AS varchar) = ' '
           AND c.last_pin_used_date IS NOT NULL
-
+        
         UNION ALL
-
-        -- Credit Card Accounts (Credit Lines)
+        
         SELECT a.credit_union, a.member_number
         FROM "AwsDataCatalog"."silver-mvp-know"."account" a
         JOIN "AwsDataCatalog"."silver-mvp-know"."account_loan" al
@@ -70,9 +65,13 @@ WITH member_product_counts AS (
 ),
 
 cu_info AS (
-    -- Mapa CU -> nombre (seguimos por CU; resultado equivalente al CROSS JOIN de Prodigy)
-    SELECT DISTINCT credit_union, credit_union_name
-    FROM "AwsDataCatalog"."silver-mvp-know"."credit_union_info"
+    SELECT DISTINCT 
+        cui.credit_union, 
+        cui.credit_union_name,
+        fi.idfi
+    FROM "AwsDataCatalog"."silver-mvp-know"."credit_union_info" cui
+    LEFT JOIN "AwsDataCatalog"."silver-mvp-know"."blossomcompany_olb_map" fi
+      ON lower(trim(fi.prodigy_code)) = lower(trim(cui.credit_union))
 ),
 
 member_status AS (
@@ -120,10 +119,9 @@ recent_account_activity AS (
       AND th.void_flag = 0
 )
 
--- =========================
--- ACCOUNTS (no loans)
--- =========================
 SELECT
+    a.credit_union AS credit_union,
+    ci.idfi AS idfi,
     a.member_number AS id_member,
     a.account_number AS id_product,
     'Accounts' AS main_category,
@@ -174,10 +172,9 @@ WHERE a.member_number > 0
 
 UNION ALL
 
--- =========================
--- LOANS (excluye CC)
--- =========================
 SELECT
+    a.credit_union AS credit_union,
+    ci.idfi AS idfi,
     a.member_number AS id_member,
     a.account_number AS id_product,
     'Loans' AS main_category,
@@ -227,10 +224,9 @@ WHERE a.member_number > 0
 
 UNION ALL
 
--- =========================
--- DEBIT / ATM CARDS (physical)
--- =========================
 SELECT
+    c.credit_union AS credit_union,
+    ci.idfi AS idfi,
     c.member_number AS id_member,
     CONCAT(CAST(c.member_number AS varchar), '_CARD_', CAST(c.record_number AS varchar)) AS id_product,
     'Cards' AS main_category,
@@ -287,10 +283,9 @@ WHERE c.member_number > 0
 
 UNION ALL
 
--- =========================
--- PHYSICAL CREDIT CARDS
--- =========================
 SELECT
+    c.credit_union AS credit_union,
+    ci.idfi AS idfi,
     c.member_number AS id_member,
     CONCAT(CAST(c.member_number AS varchar), '_CREDITCARD_', CAST(c.record_number AS varchar)) AS id_product,
     'Cards' AS main_category,
@@ -346,10 +341,9 @@ WHERE c.member_number > 0
 
 UNION ALL
 
--- =========================
--- CREDIT CARD ACCOUNTS (credit lines)
--- =========================
 SELECT
+    a.credit_union AS credit_union,
+    ci.idfi AS idfi,
     a.member_number AS id_member,
     CONCAT(CAST(a.account_number AS varchar), '_CREDIT_ACCOUNT') AS id_product,
     'Cards' AS main_category,
@@ -377,7 +371,7 @@ SELECT
     ms.member_all_accounts_closed_flag
 FROM "AwsDataCatalog"."silver-mvp-know"."account" a
 JOIN "AwsDataCatalog"."silver-mvp-know"."account_loan" al
-  ON a.account_id   = al.account_id
+  ON a.account_id = al.account_id
  AND a.credit_union = al.credit_union
 JOIN cu_info ci
   ON ci.credit_union = a.credit_union
@@ -397,4 +391,4 @@ WHERE a.member_number > 0
   AND UPPER(TRIM(a.discriminator)) = 'L'
   AND al.credit_limit > 0
 
-ORDER BY id_member, main_category, category_product, product_is_active DESC;
+ORDER BY credit_union, idfi, id_member, main_category, category_product, product_is_active DESC;
