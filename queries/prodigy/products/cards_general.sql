@@ -69,10 +69,17 @@ all_physical_cards AS (
         END AS CHAR) as card_source,
         
         -- Store raw card_type for reference
-        ecf.card_type as raw_card_type
+        ecf.card_type as raw_card_type,
+        
+        -- Contact Information
+        pn.phone_number AS member_phone,
+        e.email1 AS member_email
         
     FROM eft_card_file ecf
     LEFT JOIN pd_xmaif x ON ecf.card_type = x.card_type
+    LEFT JOIN member m ON ecf.member_number = m.member_number
+    LEFT JOIN entity e ON m.member_entity_id = e.entity_id
+    LEFT JOIN phone_number pn ON e.entity_id = pn.entity_id AND pn.primary_phone = 1
     WHERE x.inactive_flag = 0  -- Only active card types from pd_xmaif (matches product_overview.sql)
 ),
 
@@ -137,10 +144,17 @@ credit_card_accounts AS (
         al.last_payment_date as last_activity_date,
         
         -- Card Source
-        CAST('Credit Account' AS CHAR) as card_source
+        CAST('Credit Account' AS CHAR) as card_source,
+        
+        -- Contact Information
+        pn.phone_number AS member_phone,
+        e.email1 AS member_email
         
     FROM account_loan al
     INNER JOIN account a ON al.account_id = a.account_id
+    LEFT JOIN member m ON a.member_number = m.member_number
+    LEFT JOIN entity e ON m.member_entity_id = e.entity_id
+    LEFT JOIN phone_number pn ON e.entity_id = pn.entity_id AND pn.primary_phone = 1
     WHERE al.credit_limit > 0  -- Credit Card loans only
     AND a.discriminator = 'L'  -- Loan accounts
     AND a.member_number > 0
@@ -150,6 +164,8 @@ credit_card_accounts AS (
 member_card_types AS (
     SELECT 
         member_id,
+        MAX(member_phone) AS member_phone,
+        MAX(member_email) AS member_email,
         CASE 
             WHEN COUNT(CASE WHEN card_source IN ('Physical Debit', 'Physical ATM') THEN 1 END) > 0 
                 AND COUNT(CASE WHEN card_source IN ('Physical Credit', 'Credit Account') THEN 1 END) > 0 
@@ -161,9 +177,9 @@ member_card_types AS (
             ELSE 'Unknown'
         END as member_card_portfolio
     FROM (
-        SELECT member_id, card_source FROM all_physical_cards
+        SELECT member_id, card_source, member_phone, member_email FROM all_physical_cards
         UNION ALL
-        SELECT member_id, card_source FROM credit_card_accounts
+        SELECT member_id, card_source, member_phone, member_email FROM credit_card_accounts
     ) all_cards
     GROUP BY member_id
 )
@@ -171,6 +187,8 @@ member_card_types AS (
 -- Final unified result
 SELECT 
     uc.member_id,
+    mct.member_phone,
+    mct.member_email,
     uc.card_id,
     uc.last_4_digits,
     uc.card_type,
@@ -205,7 +223,8 @@ FROM (
         creation_date, deleted_date, expiration_date, 
         balance_or_credit_limit, credit_used, credit_used_percentage,
         status, delinquency_bracket, activation_date, is_activated,
-        fraud_incident, last_activity_date, card_source
+        fraud_incident, last_activity_date, card_source,
+        member_phone, member_email
     FROM all_physical_cards
     
     UNION ALL
@@ -215,7 +234,8 @@ FROM (
         creation_date, deleted_date, expiration_date,
         balance_or_credit_limit, credit_used, credit_used_percentage,
         status, delinquency_bracket, activation_date, is_activated,
-        fraud_incident, last_activity_date, card_source
+        fraud_incident, last_activity_date, card_source,
+        member_phone, member_email
     FROM credit_card_accounts
 ) uc
 LEFT JOIN member_card_types mct ON uc.member_id = mct.member_id

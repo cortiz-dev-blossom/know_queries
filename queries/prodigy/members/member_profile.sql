@@ -18,6 +18,23 @@ END AS middle_name,
 CONCAT(UPPER(LEFT(e.name_last, 1)), LOWER(SUBSTRING(e.name_last, 2))) AS last_name,
 
 e.preferred_name AS preferred_name,
+pn.phone_number AS member_phone,
+e.email1 AS member_email,
+
+    -- Credit Score Information
+    e.credit_score AS credit_score,
+    e.credit_score_code AS credit_score_code,
+    e.credit_score_date AS credit_score_date,
+    CASE 
+        WHEN e.credit_score IS NULL THEN 'No Score'
+        WHEN e.credit_score = 0 THEN 'No Score'
+        WHEN e.credit_score BETWEEN 1 AND 579 THEN 'Very Poor'
+        WHEN e.credit_score BETWEEN 580 AND 669 THEN 'Fair'
+        WHEN e.credit_score BETWEEN 670 AND 739 THEN 'Good'
+        WHEN e.credit_score BETWEEN 740 AND 799 THEN 'Very Good'
+        WHEN e.credit_score >= 800 THEN 'Exceptional'
+        ELSE 'Unknown'
+    END AS credit_score_category,
 
 CASE 
     WHEN e.name_first IS NULL OR e.name_first = '[NULL]' 
@@ -243,9 +260,10 @@ END AS full_name,
     -- Current Date for Refresh Tracking
     CURDATE() as data_extract_date
 
-FROM   m
+FROM   member m
 LEFT JOIN entity e ON m.member_entity_id = e.entity_id
 LEFT JOIN eligibility_group eg ON m.eligibility_group_id = eg.eligibility_group_id
+LEFT JOIN phone_number pn ON e.entity_id = pn.entity_id AND pn.primary_phone = 1
 
 -- OPTIMIZED: Single consolidated account summary subquery (active accounts only)
 LEFT JOIN (

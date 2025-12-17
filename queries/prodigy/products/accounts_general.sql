@@ -22,6 +22,11 @@ SELECT
     -- Member and CU Information
     a.member_number as member_id,
     ci.credit_union_name as cu_name,
+    
+    -- Contact Information
+    pn.phone_number AS member_phone,
+    e.email1 AS member_email,
+    
     CASE 
             WHEN ma.member_number IS NOT NULL THEN 'Online Application'
             WHEN a.created_by_userid IN ('88', '87', '92', '95', 'XXZ') THEN 'Automated Process'
@@ -98,7 +103,10 @@ SELECT
 FROM account a
 CROSS JOIN cu_info ci
 LEFT JOIN member_account_stats mas ON a.member_number = mas.member_number
-left join member_application ma on a.member_number = ma.member_number 
+LEFT JOIN member_application ma on a.member_number = ma.member_number
+LEFT JOIN member m ON a.member_number = m.member_number
+LEFT JOIN entity e ON m.member_entity_id = e.entity_id
+LEFT JOIN phone_number pn ON e.entity_id = pn.entity_id AND pn.primary_phone = 1
 LEFT JOIN (
     SELECT DISTINCT account_id 
     FROM transaction_history 

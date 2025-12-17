@@ -1,11 +1,16 @@
 SELECT 
     -- Identification
     a.member_number as Member_ID,
+    'MINNEQUA WORKS CREDIT UNION' as CU_Name,
     a.account_id as Loan_ID,
     
     -- CREDIT BUREAU CLASSIFICATION (Definitive source for loan categorization)
-    at.cb_loan_type as Credit_Bureau_Code,
     CASE 
+        WHEN a.discriminator = 'U' AND a.account_type IN ('CENT', 'MHS', 'MH24') THEN '26'
+        ELSE at.cb_loan_type
+    END as Credit_Bureau_Code,
+    CASE 
+        WHEN a.discriminator = 'U' AND a.account_type IN ('CENT', 'MHS', 'MH24') THEN 'Real Estate/Mortgage Loans'
         WHEN at.cb_loan_type = '00' THEN 'Auto Loans'
         WHEN at.cb_loan_type = '01' THEN 'Unsecured/Personal Loans'
         WHEN at.cb_loan_type = '02' THEN 'Share/CD Secured Loans'
@@ -133,8 +138,8 @@ SELECT
     END as Interest_Performance_Ratio
 
 FROM account a
-INNER JOIN account_loan al ON a.account_id = al.account_id
+LEFT JOIN account_loan al ON a.account_id = al.account_id
 LEFT JOIN account_types at ON a.account_type = at.account_type
-WHERE a.discriminator = 'L' 
+WHERE a.discriminator IN ('L', 'U')
   AND a.account_type NOT IN ('CC', 'PCO', 'PCCO')
 ORDER BY a.member_number, a.account_id

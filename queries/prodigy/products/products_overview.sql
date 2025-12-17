@@ -124,6 +124,8 @@ recent_account_activity AS (
 SELECT 
     a.member_number AS id_member,
     a.account_number AS id_product,
+    pn.phone_number AS member_phone,
+    e.email1 AS member_email,
     'Accounts' AS main_category,
     CASE 
         WHEN a.discriminator = 'S' THEN 'Savings Account'
@@ -159,6 +161,9 @@ LEFT JOIN member_product_counts mpc ON a.member_number = mpc.member_number
 LEFT JOIN member_status ms         ON a.member_number = ms.member_number
 LEFT JOIN member_kind mk           ON mk.member_number = a.member_number
 LEFT JOIN recent_account_activity ra ON ra.account_id = a.account_id
+LEFT JOIN member m ON a.member_number = m.member_number
+LEFT JOIN entity e ON m.member_entity_id = e.entity_id
+LEFT JOIN phone_number pn ON e.entity_id = pn.entity_id AND pn.primary_phone = 1
 WHERE a.discriminator IN ('S', 'D', 'C', 'U')
 
 UNION ALL
@@ -169,11 +174,12 @@ UNION ALL
 SELECT 
     a.member_number AS id_member,
     a.account_number AS id_product,
+    pn.phone_number AS member_phone,
+    e.email1 AS member_email,
     'Loans' AS main_category,
     'Loan' AS category_product,
     ci.credit_union_name AS cu_name,
     a.account_number AS product_number,
-    a.account_type AS loan_type,
     a.date_opened AS date_opened_product,
     a.date_closed AS date_closed_product,
     mpc.total_products_per_member AS number_of_products_for_member,
@@ -201,6 +207,9 @@ LEFT JOIN member_product_counts mpc ON a.member_number = mpc.member_number
 LEFT JOIN member_status ms         ON a.member_number = ms.member_number
 LEFT JOIN member_kind mk           ON mk.member_number = a.member_number
 LEFT JOIN recent_account_activity ra ON ra.account_id = a.account_id
+LEFT JOIN member m ON a.member_number = m.member_number
+LEFT JOIN entity e ON m.member_entity_id = e.entity_id
+LEFT JOIN phone_number pn ON e.entity_id = pn.entity_id AND pn.primary_phone = 1
 WHERE a.discriminator = 'L' 
 
 UNION ALL
@@ -211,6 +220,8 @@ UNION ALL
 SELECT 
     c.member_number AS id_member,
     CONCAT(c.member_number, '_CARD_', c.record_number) AS id_product,
+    pn.phone_number AS member_phone,
+    e.email1 AS member_email,
     'Cards' AS main_category,
     CASE 
         WHEN c.card_type = 'D'  THEN 'Debit Card'
@@ -254,11 +265,12 @@ CROSS JOIN cu_info ci
 LEFT JOIN member_product_counts mpc ON c.member_number = mpc.member_number
 LEFT JOIN member_status ms         ON c.member_number = ms.member_number
 LEFT JOIN member_kind mk           ON mk.member_number = c.member_number
+LEFT JOIN member m ON c.member_number = m.member_number
+LEFT JOIN entity e ON m.member_entity_id = e.entity_id
+LEFT JOIN phone_number pn ON e.entity_id = pn.entity_id AND pn.primary_phone = 1
 WHERE c.card_type IN ('D', 'DI', 'A')
 
 UNION ALL
---pd_xmaif
---eft_vendor
 
 -- =========================
 -- PHYSICAL CREDIT CARDS
@@ -266,6 +278,8 @@ UNION ALL
 SELECT 
     c.member_number AS id_member,
     CONCAT(c.member_number, '_CREDITCARD_', c.record_number) AS id_product,
+    pn.phone_number AS member_phone,
+    e.email1 AS member_email,
     'Cards' AS main_category,
     CASE 
         WHEN c.card_type = 'C'  THEN 'Credit Gold Card'
@@ -308,6 +322,9 @@ CROSS JOIN cu_info ci
 LEFT JOIN member_product_counts mpc ON c.member_number = mpc.member_number
 LEFT JOIN member_status ms         ON c.member_number = ms.member_number
 LEFT JOIN member_kind mk           ON mk.member_number = c.member_number
+LEFT JOIN member m ON c.member_number = m.member_number
+LEFT JOIN entity e ON m.member_entity_id = e.entity_id
+LEFT JOIN phone_number pn ON e.entity_id = pn.entity_id AND pn.primary_phone = 1
 WHERE c.card_type IN ('C', 'PC')
 
 UNION ALL
@@ -318,6 +335,8 @@ UNION ALL
 SELECT 
     a.member_number AS id_member,
     CONCAT(a.account_number, '_CREDIT_ACCOUNT') AS id_product,
+    pn.phone_number AS member_phone,
+    e.email1 AS member_email,
     'Cards' AS main_category,
     'Credit Card Account' AS category_product,
     ci.credit_union_name AS cu_name,
@@ -349,6 +368,9 @@ LEFT JOIN member_product_counts mpc ON a.member_number = mpc.member_number
 LEFT JOIN member_status ms         ON a.member_number = ms.member_number
 LEFT JOIN member_kind mk           ON mk.member_number = a.member_number
 LEFT JOIN recent_account_activity ra ON ra.account_id = a.account_id
+LEFT JOIN member m ON a.member_number = m.member_number
+LEFT JOIN entity e ON m.member_entity_id = e.entity_id
+LEFT JOIN phone_number pn ON e.entity_id = pn.entity_id AND pn.primary_phone = 1
 WHERE a.discriminator = 'L' 
   AND al.credit_limit > 0
 

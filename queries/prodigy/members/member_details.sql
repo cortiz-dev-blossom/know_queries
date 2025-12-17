@@ -24,17 +24,20 @@ SELECT
     END as product_type,
     m.member_id,
     m.member_number,
+    -- Contact information
+    pn.phone_number AS member_phone,
+    e.email1 AS member_email,
     -- Filter columns for dashboard
-    CASE WHEN member_number > 0 THEN 'Valid' ELSE 'Invalid' END AS member_number_is_valid,
-    CASE WHEN inactive_flag = 'I' THEN 'Inactive Flag' ELSE 'Active Flag' END AS member_inactive_flag_status,
+    CASE WHEN m.member_number > 0 THEN 'Valid' ELSE 'Invalid' END AS member_number_is_valid,
+    CASE WHEN m.inactive_flag = 'I' THEN 'Inactive Flag' ELSE 'Active Flag' END AS member_inactive_flag_status,
     -- UPDATED: Match user query logic - exclude NULL values
     CASE 
-        WHEN all_accounts_closed = 1 THEN 'All Closed'
-        WHEN all_accounts_closed = 0 THEN 'Has Open Accounts'
+        WHEN m.all_accounts_closed = 1 THEN 'All Closed'
+        WHEN m.all_accounts_closed = 0 THEN 'Has Open Accounts'
         ELSE 'Unknown/NULL'
     END AS member_accounts_status,
-    inactive_flag AS member_inactive_flag_code,
-    all_accounts_closed AS member_all_accounts_closed_flag,
+    m.inactive_flag AS member_inactive_flag_code,
+    m.all_accounts_closed AS member_all_accounts_closed_flag,
     e.address1,
     YEAR(CURDATE()) - YEAR(e.dob) AS age,
     -- Age group calculation
@@ -89,3 +92,4 @@ SELECT
 FROM Account a
 LEFT JOIN member m ON a.member_number = m.member_number
 LEFT JOIN entity e ON m.member_entity_id = e.entity_id
+LEFT JOIN phone_number pn ON e.entity_id = pn.entity_id AND pn.primary_phone = 1
